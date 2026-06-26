@@ -1,6 +1,6 @@
 "use client";
 
-import { CircleDot, Grid2x2, Image as ImageIcon, Info, LibraryBig, Redo2, Settings2, Square, Trash2, Type, Undo2 } from "lucide-react";
+import { CircleDot, Grid2x2, Image as ImageIcon, Info, LayoutDashboard, LibraryBig, Redo2, Settings2, Square, Trash2, Type, Undo2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Segmented } from "@/components/ui/toggle-group";
@@ -19,6 +19,7 @@ type CanvasToolbarProps = {
   onAddText: () => void;
   onAddConfig: () => void;
   onImportPromptGallery: () => void;
+  onOpenTemplate: () => void;
   onUndo: () => void;
   onRedo: () => void;
   onDelete: () => void;
@@ -37,6 +38,7 @@ export function CanvasToolbar({
   onAddText,
   onAddConfig,
   onImportPromptGallery,
+  onOpenTemplate,
   onUndo,
   onRedo,
   onDelete,
@@ -71,6 +73,11 @@ export function CanvasToolbar({
           </Button>
         </CanvasTooltip>
       )}
+      <CanvasTooltip label="画布流程模板">
+        <Button variant="ghost" size="icon-sm" onClick={onOpenTemplate} aria-label="画布流程模板">
+          <LayoutDashboard className="size-4" />
+        </Button>
+      </CanvasTooltip>
 
       <div className="mx-1 h-5 w-px bg-border" />
 
