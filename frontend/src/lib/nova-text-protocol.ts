@@ -19,17 +19,17 @@ const TEXT_PROTOCOL_CAPABILITIES: Record<TextProviderProtocol, TextProtocolCapab
     supportsFunctionTools: true,
   },
   'openai-chat-completions': {
-    supportsReasoningSummary: false,
+    supportsReasoningSummary: true,
     supportsNativeWebSearch: false,
     supportsFunctionTools: true,
   },
   'anthropic-messages': {
-    supportsReasoningSummary: false,
+    supportsReasoningSummary: true,
     supportsNativeWebSearch: true,
     supportsFunctionTools: true,
   },
   'google-gemini': {
-    supportsReasoningSummary: false,
+    supportsReasoningSummary: true,
     supportsNativeWebSearch: true,
     supportsFunctionTools: true,
   },
@@ -44,6 +44,10 @@ export function isTextProviderProtocol(value: unknown): value is TextProviderPro
 
 export function getTextProtocolCapabilities(protocol: TextProviderProtocol): TextProtocolCapabilities {
   return TEXT_PROTOCOL_CAPABILITIES[protocol];
+}
+
+export function supportsAgentNativeWebSearch(protocol: TextProviderProtocol): boolean {
+  return getTextProtocolCapabilities(protocol).supportsNativeWebSearch;
 }
 
 export function getTextProviderLabel(protocol: TextProviderProtocol): string {

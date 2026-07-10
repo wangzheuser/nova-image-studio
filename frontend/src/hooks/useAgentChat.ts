@@ -221,9 +221,12 @@ export function useAgentChat() {
   }, []);
 
   const agentSupportsWebSearch = useCallback(() => {
-    const configured = getAgentTextModelConfig();
+    const configured = getDefaultConfiguredTextModel('agent');
+    if (!configured?.apiKey || !configured.baseUrl || !configured.modelId) {
+      return false;
+    }
     return supportsAgentNativeWebSearch(configured.protocol);
-  }, [getAgentTextModelConfig]);
+  }, []);
 
   // ===== 流式更新批处理（rAF 节流） =====
   const streamingTextBufRef = useRef('');

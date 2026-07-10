@@ -148,6 +148,9 @@ interface ChatCompletionsEventEnvelope {
   choices?: Array<{
     delta?: {
       content?: string | Array<{ type?: string; text?: string }>;
+      reasoning_content?: string;
+      reasoning?: string;
+      reasoning_text?: string;
       tool_calls?: Array<{
         index?: number;
         function?: { arguments?: string };
@@ -155,6 +158,9 @@ interface ChatCompletionsEventEnvelope {
     };
     message?: {
       content?: string | Array<{ type?: string; text?: string }>;
+      reasoning_content?: string;
+      reasoning?: string;
+      reasoning_text?: string;
       tool_calls?: Array<{ function?: { arguments?: string } }>;
     };
   }>;
@@ -172,6 +178,8 @@ interface MessagesEventEnvelope {
   };
   delta?: {
     text?: string;
+    type?: string;
+    thinking?: string;
     partial_json?: string;
   };
   error?: { message?: string };
@@ -423,6 +431,7 @@ function buildAgentRequestBody(
     return {
       model,
       stream: true,
+      reasoning_effort: 'high' as const,
       messages: buildChatMessages(history, instructions),
       tools: [
         {
@@ -444,6 +453,13 @@ function buildAgentRequestBody(
       stream: true,
       max_tokens: 4096,
       system: instructions,
+      thinking: {
+        type: 'adaptive' as const,
+        display: 'summarized' as const,
+      },
+      output_config: {
+        effort: 'high' as const,
+      },
       messages: buildAnthropicMessages(history),
       tools: [
         {
@@ -474,7 +490,7 @@ function buildAgentRequestBody(
       generationConfig: {
         thinkingConfig: {
           thinkingBudget: -1,
-          includeThoughts: false,
+          includeThoughts: true,
         },
       },
     };
@@ -515,6 +531,15 @@ function handleAgentStreamEvent(
     const choice = chunk.choices?.[0];
     if (!choice) return;
 
+    const reasoningDelta = [
+      choice.delta?.reasoning_content,
+      choice.delta?.reasoning,
+      choice.delta?.reasoning_text,
+    ].find(value => typeof value === 'string' && value.length > 0);
+    if (typeof reasoningDelta === 'string' && reasoningDelta.length > 0) {
+      callbacks.onReasoning(reasoningDelta);
+    }
+
     const deltaContent = choice.delta?.content;
     const textDelta = typeof deltaContent === 'string'
       ? deltaContent
@@ -535,6 +560,15 @@ function handleAgentStreamEvent(
       state.setToolArgs(next);
     }
 
+    const reasoningFull = [
+      choice.message?.reasoning_content,
+      choice.message?.reasoning,
+      choice.message?.reasoning_text,
+    ].find(value => typeof value === 'string' && value.length > 0);
+    if (typeof reasoningFull === 'string' && reasoningFull.length > 0) {
+      callbacks.onReasoning(reasoningFull);
+    }
+
     for (const toolCall of choice.message?.tool_calls || []) {
       const fullArgs = toolCall.function?.arguments;
       if (typeof fullArgs === 'string' && fullArgs.length > 0) {
@@ -552,6 +586,9 @@ function handleAgentStreamEvent(
         state.setAccumulated(state.accumulated + chunk.content_block.text);
         callbacks.onDelta(chunk.content_block.text);
       }
+      if (chunk.content_block?.type === 'thinking' && typeof chunk.content_block.text === 'string' && chunk.content_block.text.length > 0) {
+        callbacks.onReasoning(chunk.content_block.text);
+      }
       if (chunk.content_block?.type === 'tool_use' && chunk.content_block.input && typeof chunk.index === 'number') {
         const serialized = JSON.stringify(chunk.content_block.input);
         state.toolArgsByIndex.set(chunk.index, serialized);
@@ -560,6 +597,9 @@ function handleAgentStreamEvent(
       return;
     }
     if (eventType === 'content_block_delta') {
+      if (chunk.delta?.type === 'thinking_delta' && typeof chunk.delta?.thinking === 'string') {
+        callbacks.onReasoning(chunk.delta.thinking);
+      }
       if (typeof chunk.delta?.text === 'string') {
         state.setAccumulated(state.accumulated + chunk.delta.text);
         callbacks.onDelta(chunk.delta.text);
@@ -594,10 +634,13 @@ function handleAgentStreamEvent(
     if (chunk.error?.message) throw new Error(chunk.error.message);
     for (const candidate of chunk.candidates || []) {
       for (const part of candidate.content?.parts || []) {
-        if (part.thought === true) continue;
         if (typeof part.text === 'string' && part.text.length > 0) {
-          state.setAccumulated(state.accumulated + part.text);
-          callbacks.onDelta(part.text);
+          if (part.thought === true) {
+            callbacks.onReasoning(part.text);
+          } else {
+            state.setAccumulated(state.accumulated + part.text);
+            callbacks.onDelta(part.text);
+          }
         }
         if (part.functionCall?.name === PROPOSE_IMAGE_ACTION_TOOL.name && part.functionCall.args) {
           state.setToolArgs(JSON.stringify(part.functionCall.args));
